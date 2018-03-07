@@ -37,9 +37,9 @@ public:
 //define the Intersection between a ray and a triangle
 struct Intersection
 {
-glm::vec4 position;
-float distance;
-int triangleIndex;
+	glm::vec4 position;
+	float distance;
+	int triangleIndex;
 };
 
 // Loads the Cornell Box. It is scaled to fill the volume:
