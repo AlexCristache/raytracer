@@ -15,8 +15,8 @@ using glm::mat4;
 
 //320 x 256
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 256
+#define SCREEN_WIDTH 960
+#define SCREEN_HEIGHT 768
 #define FULLSCREEN_MODE false
 #define pi 3.1415
 
@@ -62,24 +62,28 @@ void Draw(screen* screen)
   LoadTestModel(triangles);
   vec3 indirectLight = 0.5f * vec3(1,1,1);
 
-  for(int y = 0; y < SCREEN_HEIGHT; y++) {
-    for(int x = 0; x < SCREEN_WIDTH; x++) {
-      float focalLength = SCREEN_HEIGHT/2.0;
-      float width = SCREEN_WIDTH/2.0;
-      float height = SCREEN_HEIGHT/2.0;
-      vec4 direction(x - width, y - height, focalLength, 1.0);
+  for(float y = 0.0; y < SCREEN_HEIGHT; y++) {
+    for(float x = 0.0; x < SCREEN_WIDTH; x++) {
+      float focalLength = SCREEN_HEIGHT/2.f;
+      float width = SCREEN_WIDTH/2.f;
+      float height = SCREEN_HEIGHT/2.f;
 
-      direction = normalize(direction);
       Intersection target;
-      target.triangleIndex = -1;
-      bool found = ClosestIntersection(camera_pos, direction, triangles, target);
-      if(found) {
-        int id = target.triangleIndex;
-        //PutPixelSDL(screen, x, y, triangles[id].color);
-        vec3 color = DirectLight( target );
-        PutPixelSDL(screen, x, y, triangles[id].color * (color + indirectLight));
-        //std::cout << "x = " << x << " y = " << y << " id = " << id << endl;
+      vec3 sum = vec3(0);
+      for( float dy = -0.5; dy <= 0.5; dy += 0.25 ) {
+        for( float dx = -0.5; dx <= 0.5; dx += 0.25 ) {
+          vec4 direction = vec4( x + dx - width, y + dy - height, focalLength, 0.f );
+          direction = normalize( direction );
+          bool found = ClosestIntersection( camera_pos, direction, triangles, target );
+          if( found ) {
+            vec3 color = DirectLight( target );
+            int id = target.triangleIndex;
+            sum += triangles[id].color * (color + indirectLight);
+          }
+        }
       }
+      sum = vec3(sum.x / 16, sum.y / 16, sum.z / 16);
+      PutPixelSDL( screen, x, y, sum );
     }
   }
 }
@@ -93,7 +97,7 @@ void Update()
   float dt = float(t2-t);
   t = t2;
   /*Good idea to remove this*/
-  //std::cout << "Render time: " << dt << " ms." << std::endl;
+  std::cout << "Render time: " << dt << " ms." << std::endl;
   /* Update variables*/
 
   mat4 Rot_y;
@@ -135,13 +139,13 @@ void Update()
   {
     // Move camera to the left
     cout << "left" << endl;
-    yaw = 90.0;
+    yaw = 10.0;
     vec4 x_col = glm::vec4( cos( yaw * rad ), 0.0, sin( yaw * rad * (-1) ) , 0.0 );
     vec4 y_col = glm::vec4( 0.0, 1.0, 0.0, 0.0 );
     vec4 z_col = glm::vec4( sin( yaw * rad ), 0.0, cos( yaw * rad ), 0.0 );
     vec4 translation = glm::vec4( 1.0, 1.0, 1.0, 1.0 );
     Rot_y = glm::mat4( x_col, y_col, z_col, translation );
-    vec3 from = vec3(camera_pos.x, camera_pos.y, camera_pos.z);
+    /*vec3 from = vec3(camera_pos.x, camera_pos.y, camera_pos.z);
     vec4 to1 = camera_pos * Rot_y;
     vec3 to = vec3( to1.x, to1.y, to1.z );
     mat4 camToWorld = LookAt( from, to);
@@ -152,7 +156,8 @@ void Update()
       cout << endl;
     }
     //vec4 c = vec4(camera.x, camera.y, camera.z, 1.0);
-    //camera_pos = c * Rot_y;
+    camera_pos = camera_pos - vec4(camToWorld[2][0], camToWorld[2][1], camToWorld[2][2], 1.0);*/
+    camera_pos = camera_pos * Rot_y;
     //cout << "x= " << camera_pos.x << " y= " << camera_pos.y << " z= " << camera_pos.z << " yaw = " << yaw <<  endl;
   }
   if( keystate[SDL_SCANCODE_RIGHT] )
@@ -182,7 +187,7 @@ vec3 DirectLight(const Intersection &i)
   float fraction = r_dot_n / (4.f * pi * radius * radius);
   vec3 D = vec3( light_color.x * fraction, light_color.y * fraction, light_color.z * fraction );
 
-  n = vec4( n.x * 0.001, n.y * 0.001, n.z * 0.001, 0.0 );
+  n = vec4( n.x * 0.001, n.y * 0.001, n.z * 0.001, 0.f );
 
   Intersection target;
   bool found = ClosestIntersection( position + n, r, triangles, target );
@@ -206,9 +211,9 @@ bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, 
     vec4 v1 = triangles[i].v1;
     vec4 v2 = triangles[i].v2;
 
-    vec3 e1 = vec3(v1.x - v0.x, v1.y - v0.y, v1.z - v0.z);
-    vec3 e2 = vec3(v2.x - v0.x, v2.y - v0.y, v2.z - v0.z);
-    vec3 b = vec3(start.x - v0.x, start.y - v0.y, start.z - v0.z);
+    vec3 e1 = vec3((v1.x - v0.x) * 1.0, (v1.y - v0.y) * 1.0, (v1.z - v0.z) * 1.0);
+    vec3 e2 = vec3((v2.x - v0.x) * 1.0, (v2.y - v0.y) * 1.0, (v2.z - v0.z) * 1.0);
+    vec3 b = vec3((start.x - v0.x) * 1.0, (start.y - v0.y) * 1.0, (start.z - v0.z) * 1.0);
     vec3 direction = vec3(dir.x, dir.y, dir.z);
     direction = normalize(direction);
     mat3 A(-direction, e1, e2);
@@ -248,21 +253,6 @@ mat4 LookAt( vec3 from, vec3 to )
 
   camToWorld = mat4( x_col, y_col, z_col, col );
 
-  /*camToWorld[0][0] = right.x;
-  camToWorld[1][0] = up.x;
-  camToWorld[2][0] = forward.x;
-
-  camToWorld[0][1] = right.y;
-  camToWorld[1][1] = up.y;
-  camToWorld[2][1] = forward.y;
-
-  camToWorld[0][2] = right.z;
-  camToWorld[2][2] = forward.z;
-  camToWorld[1][2] = up.z;
-
-  camToWorld[3][0] = from.x;
-  camToWorld[3][1] = from.y;
-  camToWorld[3][2] = from.z;*/
 
   return camToWorld;
 }
