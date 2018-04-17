@@ -15,8 +15,8 @@ using glm::mat4;
 
 //320 x 256
 
-#define SCREEN_WIDTH 960
-#define SCREEN_HEIGHT 768
+#define SCREEN_WIDTH 320
+#define SCREEN_HEIGHT 256
 #define FULLSCREEN_MODE false
 #define pi 3.1415
 
@@ -28,9 +28,12 @@ void Draw(screen* screen);
 bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, Intersection& target);
 mat4 LookAt(vec3 from, vec3 to);
 vec3 DirectLight(const Intersection &i);
+void update_rotation_y(glm::mat4& R_y);
 
 vec4 camera_pos(0.0, 0.0, -2.5, 1.0);
+vec4 camera_pos_y(0.0, 0.0, -2.5, 1.0);
 float yaw = 0.0;
+mat4 Rot_y;
 vec4 light_pos( 0.0, -0.5, -0.7, 1.0 );
 vec3 light_color = 14.f * vec3( 1, 1, 1 );
 std::vector<Triangle> triangles;
@@ -70,9 +73,21 @@ void Draw(screen* screen)
 
       Intersection target;
       vec3 sum = vec3(0);
+
+      /*vec4 direction = vec4( x - width, y - height, focalLength, 0.f );
+      direction = Rot_y * direction;
+      direction = normalize(direction);
+      bool found = ClosestIntersection( camera_pos, direction, triangles, target );
+      if( found ) {
+        int id = target.triangleIndex;
+        PutPixelSDL( screen, x, y, triangles[id].color );
+      }*/
+
       for( float dy = -0.5; dy <= 0.5; dy += 0.25 ) {
         for( float dx = -0.5; dx <= 0.5; dx += 0.25 ) {
           vec4 direction = vec4( x + dx - width, y + dy - height, focalLength, 0.f );
+          //rotate camera around y axis
+          //direction = Rot_y * direction;
           direction = normalize( direction );
           bool found = ClosestIntersection( camera_pos, direction, triangles, target );
           if( found ) {
@@ -97,81 +112,44 @@ void Update()
   float dt = float(t2-t);
   t = t2;
   /*Good idea to remove this*/
-  std::cout << "Render time: " << dt << " ms." << std::endl;
+  //std::cout << "Render time: " << dt << " ms." << std::endl;
   /* Update variables*/
-
-  mat4 Rot_y;
-
-  float rad = pi/180.f;
-  //vec4 x_col = glm::vec4( cos( yaw * rad ), 0.0, (-1) * sin( yaw * rad) , 0.0 );
-  //vec4 y_col = glm::vec4( 0.0, 1.0, 0.0, 0.0 );
-  //vec4 z_col = glm::vec4( sin( yaw * rad ), 0.0, cos( yaw * rad ), 0.0 );
-  //vec4 translation = glm::vec4( 0.0, 0.0, 0.0, 1.0 );
-  //Rot_y = glm::mat4( x_col, y_col, z_col, translation );
 
   const uint8_t* keystate = SDL_GetKeyboardState( NULL );
   //cout << keystate << endl;
   if( keystate[SDL_SCANCODE_UP] )
   {
-    // Move camera forward
-    //cout << "up" << endl;
-    //camera_pos = camera_pos + vec4( 0, 0, 0.01, 0 );
-    //R[2][3] += 0.01;
-    //mat4 camToWorld = LookAt( vec3( 1.0, 0.0, -2.5), vec3( 0.0, 0.0, -2.0 ) );
-    //camera_pos = camToWorld * camera_pos;
-    //translation += glm::vec4( 0.0, 0.0, 0.05, 0.0 );
-    //Rot_y = glm::mat4( x_col, y_col, z_col, translation );
-    camera_pos = Rot_y * camera_pos;
-    //cout << R[2][3] << endl;
-    //vec3 from = vec3( 0, 0, -1.5, 1.0);
-    //vec3 to = vec3( 0, 0, 0, 0 );
-    //mat4 camToWorld = LookAt( from, to );
   }
   if( keystate[SDL_SCANCODE_DOWN] )
   {
-    // Move camera backward
-    //cout << "down" << endl;
-    //translation -= glm::vec4( 0.0, 0.0, 0.05, 0.0 );
-    //Rot_y = glm::mat4( x_col, y_col, z_col, translation );
-    camera_pos = Rot_y * camera_pos;
   }
   if( keystate[SDL_SCANCODE_LEFT] )
   {
     // Move camera to the left
     cout << "left" << endl;
-    yaw = 10.0;
-    vec4 x_col = glm::vec4( cos( yaw * rad ), 0.0, sin( yaw * rad * (-1) ) , 0.0 );
-    vec4 y_col = glm::vec4( 0.0, 1.0, 0.0, 0.0 );
-    vec4 z_col = glm::vec4( sin( yaw * rad ), 0.0, cos( yaw * rad ), 0.0 );
-    vec4 translation = glm::vec4( 1.0, 1.0, 1.0, 1.0 );
-    Rot_y = glm::mat4( x_col, y_col, z_col, translation );
-    /*vec3 from = vec3(camera_pos.x, camera_pos.y, camera_pos.z);
-    vec4 to1 = camera_pos * Rot_y;
-    vec3 to = vec3( to1.x, to1.y, to1.z );
-    mat4 camToWorld = LookAt( from, to);
-    for(int j = 0; j < 4; j++) {
-        for(int i = 0; i < 4; i++) {
-          cout << camToWorld[i][j] << " ";
-        }
-      cout << endl;
-    }
-    //vec4 c = vec4(camera.x, camera.y, camera.z, 1.0);
-    camera_pos = camera_pos - vec4(camToWorld[2][0], camToWorld[2][1], camToWorld[2][2], 1.0);*/
-    camera_pos = camera_pos * Rot_y;
-    //cout << "x= " << camera_pos.x << " y= " << camera_pos.y << " z= " << camera_pos.z << " yaw = " << yaw <<  endl;
+    yaw -= 0.05;
+    update_rotation_y(Rot_y);
+    //camera_pos = Rot_y * camera_pos;
+    //camera_pos_y = Rot_y * camera_pos;
   }
   if( keystate[SDL_SCANCODE_RIGHT] )
   {
     // Move camera to the right
     cout << "right" << endl;
-    yaw = -45.0;
-    vec4 x_col = glm::vec4( cos( yaw * rad ), 0.0, sin( yaw * rad ) * (-1), 0.0 );
-    vec4 y_col = glm::vec4( 0.0, 1.0, 0.0, 0.0 );
-    vec4 z_col = glm::vec4( sin( yaw * rad ), 0.0, cos( yaw * rad ), 0.0 );
-    vec4 translation = glm::vec4( 0.0, 0.0, 0.0, 1.0 );
-    Rot_y = glm::mat4( x_col, y_col, z_col, translation );
-    camera_pos = Rot_y * camera_pos;
+    yaw += 0.05;
+    update_rotation_y(Rot_y);
+    //camera_pos = Rot_y * camera_pos;
+    //camera_pos_y = Rot_y * camera_pos;
   }
+}
+
+//Rotate the camera view around the Y axis.
+void update_rotation_y (glm::mat4& R_y)
+{
+  R_y =  glm::mat4 (cos(yaw), 0, sin(yaw), 0,
+                       0,     1,     0,    0,
+                  -sin(yaw), 0, cos(yaw), 0,
+                       0,     0,     0,    1);
 }
 
 vec3 DirectLight(const Intersection &i)
@@ -179,9 +157,9 @@ vec3 DirectLight(const Intersection &i)
   vec4 position = i.position;// + vec4(0,0,0,0.08);
   vec4 r = light_pos - position;
   //r.w = 1.0;
-  r = normalize(r);
-  vec4 n = normalize(triangles[i.triangleIndex].normal);
-  float r_dot_n = dot( r, n );
+  r = glm::normalize(r);
+  vec4 n = glm::normalize(triangles[i.triangleIndex].normal);
+  float r_dot_n = glm::dot( r, n );
   float radius = length( light_pos - position );
   r_dot_n = max( r_dot_n, 0.f );
   float fraction = r_dot_n / (4.f * pi * radius * radius);

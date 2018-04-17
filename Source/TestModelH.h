@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 #include <vector>
+enum MaterialType { kDiffuse, kReflection, kReflectionAndRefraction };
 
 // Used to describe a triangular surface:
 class Triangle
@@ -15,9 +16,16 @@ public:
 	glm::vec4 v2;
 	glm::vec4 normal;
 	glm::vec3 color;
+	MaterialType material;
 
 	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color )
 		: v0(v0), v1(v1), v2(v2), color(color)
+	{
+		ComputeNormal();
+	}
+
+	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color, MaterialType material )
+		: v0(v0), v1(v1), v2(v2), color(color), material(material)
 	{
 		ComputeNormal();
 	}
@@ -128,8 +136,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	triangles.push_back( Triangle(E,A,C,red) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,red) );
-	triangles.push_back( Triangle(G,H,F,red) );
+	triangles.push_back( Triangle(G,F,E,red, kReflection) );
+	triangles.push_back( Triangle(G,H,F,red, kReflection) );
 
 	// ---------------------------------------------------------------------------
 	// Tall block
