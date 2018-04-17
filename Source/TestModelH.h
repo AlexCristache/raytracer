@@ -6,6 +6,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 enum MaterialType { kDiffuse, kReflection, kReflectionAndRefraction };
+enum RayType { primaryRay, shadowRay };
 
 // Used to describe a triangular surface:
 class Triangle
@@ -17,16 +18,20 @@ public:
 	glm::vec4 normal;
 	glm::vec3 color;
 	MaterialType material;
+	float ior;
 
 	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color )
 		: v0(v0), v1(v1), v2(v2), color(color)
 	{
+		material = kDiffuse;
+		ior = 1.8f;
 		ComputeNormal();
 	}
 
 	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color, MaterialType material )
 		: v0(v0), v1(v1), v2(v2), color(color), material(material)
 	{
+		ior = 1.8f;
 		ComputeNormal();
 	}
 
@@ -91,8 +96,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	triangles.push_back( Triangle( C, D, B, green ) );
 
 	// Left wall
-	triangles.push_back( Triangle( A, E, C, purple ) );
-	triangles.push_back( Triangle( C, E, G, purple ) );
+	triangles.push_back( Triangle( A, E, C, purple, kReflection ) );
+	triangles.push_back( Triangle( C, E, G, purple, kReflection ) );
 
 	// Right wall
 	triangles.push_back( Triangle( F, B, D, yellow ) );
@@ -123,10 +128,6 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	triangles.push_back( Triangle(E,B,A,red) );
 	triangles.push_back( Triangle(E,F,B,red) );
 
-	// Front
-	triangles.push_back( Triangle(F,D,B,red) );
-	triangles.push_back( Triangle(F,H,D,red) );
-
 	// BACK
 	triangles.push_back( Triangle(H,C,D,red) );
 	triangles.push_back( Triangle(H,G,C,red) );
@@ -136,8 +137,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	triangles.push_back( Triangle(E,A,C,red) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,red, kReflection) );
-	triangles.push_back( Triangle(G,H,F,red, kReflection) );
+	triangles.push_back( Triangle(G,F,E,red) );
+	triangles.push_back( Triangle(G,H,F,red) );
 
 	// ---------------------------------------------------------------------------
 	// Tall block
@@ -153,12 +154,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	H = vec4(314,330,456,1);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,blue) );
-	triangles.push_back( Triangle(E,F,B,blue) );
-
-	// Front
-	triangles.push_back( Triangle(F,D,B,blue) );
-	triangles.push_back( Triangle(F,H,D,blue) );
+	triangles.push_back( Triangle(E,B,A,blue ) );
+	triangles.push_back( Triangle(E,F,B,blue ) );
 
 	// BACK
 	triangles.push_back( Triangle(H,C,D,blue) );

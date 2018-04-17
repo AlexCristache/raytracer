@@ -15,8 +15,8 @@ using glm::mat4;
 
 //320 x 256
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 256
+#define SCREEN_WIDTH 640
+#define SCREEN_HEIGHT 512
 #define FULLSCREEN_MODE false
 #define pi 3.1415
 
@@ -25,12 +25,14 @@ using glm::mat4;
 
 void Update();
 void Draw(screen* screen);
-bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, Intersection& target);
+bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, Intersection& target, RayType RayType);
 mat4 LookAt(vec3 from, vec3 to);
 vec3 DirectLight(const Intersection &i);
 void update_rotation_y(glm::mat4& R_y);
+//compute the direction of the reflected ray
+glm::vec4 ReflectRay(const glm::vec4 IncidentRay, const glm::vec4 Normal);
 
-vec4 camera_pos(0.0, 0.0, -2.5, 1.0);
+vec4 camera_pos(0.0, 0.0, -2.1, 1.0);
 vec4 camera_pos_y(0.0, 0.0, -2.5, 1.0);
 float yaw = 0.0;
 mat4 Rot_y;
@@ -64,6 +66,8 @@ void Draw(screen* screen)
 
   LoadTestModel(triangles);
   vec3 indirectLight = 0.5f * vec3(1,1,1);
+  RayType rayType = primaryRay;
+
 
   for(float y = 0.0; y < SCREEN_HEIGHT; y++) {
     for(float x = 0.0; x < SCREEN_WIDTH; x++) {
@@ -72,33 +76,35 @@ void Draw(screen* screen)
       float height = SCREEN_HEIGHT/2.f;
 
       Intersection target;
-      vec3 sum = vec3(0);
+      vec3 sum = vec3(0.f);
 
-      /*vec4 direction = vec4( x - width, y - height, focalLength, 0.f );
+      glm::vec4 direction = vec4( x - width, y - height, focalLength, 1.f );
       direction = Rot_y * direction;
-      direction = normalize(direction);
-      bool found = ClosestIntersection( camera_pos, direction, triangles, target );
+      //direction = normalize(direction);
+      bool found = ClosestIntersection( camera_pos, direction, triangles, target, rayType );
       if( found ) {
+        vec3 color = DirectLight( target );
         int id = target.triangleIndex;
-        PutPixelSDL( screen, x, y, triangles[id].color );
-      }*/
-
-      for( float dy = -0.5; dy <= 0.5; dy += 0.25 ) {
-        for( float dx = -0.5; dx <= 0.5; dx += 0.25 ) {
-          vec4 direction = vec4( x + dx - width, y + dy - height, focalLength, 0.f );
-          //rotate camera around y axis
-          //direction = Rot_y * direction;
-          direction = normalize( direction );
-          bool found = ClosestIntersection( camera_pos, direction, triangles, target );
-          if( found ) {
-            vec3 color = DirectLight( target );
-            int id = target.triangleIndex;
-            sum += triangles[id].color * (color + indirectLight);
-          }
-        }
+        PutPixelSDL( screen, x, y, triangles[id].color * (color + indirectLight));
       }
-      sum = vec3(sum.x / 16, sum.y / 16, sum.z / 16);
-      PutPixelSDL( screen, x, y, sum );
+
+      // for( float dy = -0.5; dy < 0.5; dy += 0.5 ) {
+      //   for( float dx = -0.5; dx < 0.5; dx += 0.5 ) {
+      //     vec4 direction = vec4( x + dx - width, y + dy - height, focalLength, 0.f );
+      //     //rotate camera around y axis
+      //     //direction = Rot_y * direction;
+      //     //direction = normalize( direction );
+      //     bool found = ClosestIntersection( camera_pos, direction, triangles, target, rayType );
+      //
+      //     if( found ) {
+      //       vec3 color = DirectLight( target );
+      //       int id = target.triangleIndex;
+      //       sum += triangles[id].color * (color + indirectLight);
+      //     }
+      //   }
+      // }
+      // sum = vec3(sum.x / 4, sum.y / 4, sum.z / 4);
+      // PutPixelSDL( screen, x, y, sum );
     }
   }
 }
@@ -112,22 +118,32 @@ void Update()
   float dt = float(t2-t);
   t = t2;
   /*Good idea to remove this*/
-  //std::cout << "Render time: " << dt << " ms." << std::endl;
+  std::cout << "Render time: " << dt << " ms." << std::endl;
   /* Update variables*/
 
   const uint8_t* keystate = SDL_GetKeyboardState( NULL );
   //cout << keystate << endl;
-  if( keystate[SDL_SCANCODE_UP] )
+  if( keystate[SDL_SCANCODE_W] )
   {
+    camera_pos.z += 0.2;
   }
-  if( keystate[SDL_SCANCODE_DOWN] )
+  if( keystate[SDL_SCANCODE_S] )
   {
+    camera_pos.z -= 0.2;
+  }
+  if( keystate[SDL_SCANCODE_A] )
+  {
+    camera_pos.x -= 0.2;
+  }
+  if( keystate[SDL_SCANCODE_D] )
+  {
+    camera_pos.x += 0.2;
   }
   if( keystate[SDL_SCANCODE_LEFT] )
   {
     // Move camera to the left
     cout << "left" << endl;
-    yaw -= 0.05;
+    yaw += 0.05;
     update_rotation_y(Rot_y);
     //camera_pos = Rot_y * camera_pos;
     //camera_pos_y = Rot_y * camera_pos;
@@ -136,10 +152,34 @@ void Update()
   {
     // Move camera to the right
     cout << "right" << endl;
-    yaw += 0.05;
+    yaw -= 0.05;
     update_rotation_y(Rot_y);
     //camera_pos = Rot_y * camera_pos;
     //camera_pos_y = Rot_y * camera_pos;
+  }
+  if( keystate[SDL_SCANCODE_I] )
+  {
+    light_pos.z += 0.2;
+  }
+  if( keystate[SDL_SCANCODE_K] )
+  {
+    light_pos.z -= 0.2;
+  }
+  if( keystate[SDL_SCANCODE_J] )
+  {
+    light_pos.x -= 0.2;
+  }
+  if( keystate[SDL_SCANCODE_L] )
+  {
+    light_pos.x += 0.2;
+  }
+  if( keystate[SDL_SCANCODE_U] )
+  {
+    light_pos.y -= 0.2;
+  }
+  if( keystate[SDL_SCANCODE_O] )
+  {
+    light_pos.y += 0.2;
   }
 }
 
@@ -168,9 +208,10 @@ vec3 DirectLight(const Intersection &i)
   n = vec4( n.x * 0.001, n.y * 0.001, n.z * 0.001, 0.f );
 
   Intersection target;
-  bool found = ClosestIntersection( position + n, r, triangles, target );
-  float d1 = length(position - light_pos);
-  float d = length(position - target.position );
+  RayType rayType = shadowRay;
+  bool found = ClosestIntersection( position + n, r, triangles, target, rayType );
+  //float d1 = length(position - light_pos);
+  //float d = length(position - target.position );
   //float a = dot( (position - light_pos), (position - target.position));
   if( found && target.distance < radius ) {
     D = vec3(0.0, 0.0, 0.0);
@@ -179,10 +220,24 @@ vec3 DirectLight(const Intersection &i)
   return D ;
 }
 
-bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, Intersection& target)
+//compute the direction of the reflected ray
+glm::vec4 ReflectRay(const glm::vec4 IncidentRay, const glm::vec4 Normal)
+{
+  glm::vec3 i = glm::vec3( IncidentRay.x, IncidentRay.y, IncidentRay.z );
+  glm::vec3 n = glm::vec3( Normal.x, Normal.y, Normal.z );
+  glm::vec3 result = i - 2 * glm::dot(i, n) * n;
+  result = glm::normalize(result);
+  return glm::vec4(result, 0.0);
+  //result.w = 1.f;
+  //return result;
+}
+
+bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, Intersection& target, RayType rayType)
 {
   bool found = false;
   float distance = std::numeric_limits<float>::max();
+  vec3 direction = vec3(dir.x, dir.y, dir.z);
+  direction = normalize(direction);
 
   for(size_t i = 0; i < triangles.size(); i++) {
     vec4 v0 = triangles[i].v0;
@@ -192,8 +247,6 @@ bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, 
     vec3 e1 = vec3((v1.x - v0.x) * 1.0, (v1.y - v0.y) * 1.0, (v1.z - v0.z) * 1.0);
     vec3 e2 = vec3((v2.x - v0.x) * 1.0, (v2.y - v0.y) * 1.0, (v2.z - v0.z) * 1.0);
     vec3 b = vec3((start.x - v0.x) * 1.0, (start.y - v0.y) * 1.0, (start.z - v0.z) * 1.0);
-    vec3 direction = vec3(dir.x, dir.y, dir.z);
-    direction = normalize(direction);
     mat3 A(-direction, e1, e2);
     vec3 x = glm::inverse(A) * b;
 
@@ -206,6 +259,32 @@ bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, 
       target.position.w = 1.0;
       target.distance = x.x * 1.0;
       target.triangleIndex = i;
+    }
+  }
+
+  //if a closest intersection was found
+  if(found && rayType == primaryRay) {
+    //check for surface properties
+    switch (triangles[target.triangleIndex].material) {
+      case kReflection: {
+        //cout << "triangle #" << target.triangleIndex << endl;
+        glm::vec4 incidentRay = glm::vec4(direction, 1.0);
+        glm::vec4 reflectedRay = ReflectRay(incidentRay, triangles[target.triangleIndex].normal);
+        Intersection reflectedTarget;
+        //cout << "#1 " << endl;
+        glm::vec4 origin = target.position + glm::vec4(0.001) * triangles[target.triangleIndex].normal;
+        origin.w = 1.0;
+        bool reflectionFound = ClosestIntersection(origin, reflectedRay, triangles, reflectedTarget, rayType);
+        //cout << "#2 " << reflectionFound << endl;
+        if(reflectionFound) {
+          target.triangleIndex = reflectedTarget.triangleIndex;
+        }
+        return reflectionFound;
+        break;
+      }
+      default: {
+        break;
+      }
     }
   }
 
