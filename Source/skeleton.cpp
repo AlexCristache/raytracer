@@ -31,6 +31,8 @@ vec3 DirectLight(const Intersection &i);
 void update_rotation_y(glm::mat4& R_y);
 //compute the direction of the reflected ray
 glm::vec4 ReflectRay(const glm::vec4 IncidentRay, const glm::vec4 Normal);
+glm::vec4 refract(const glm::vec4 IncidentRay, const glm::vec4 Normal, float ior);
+void fresnel(const glm::vec4& IncidentRay, const glm::vec4& Normal, const float &ior, float &kr );
 
 vec4 camera_pos(0.0, 0.0, -2.1, 1.0);
 vec4 camera_pos_y(0.0, 0.0, -2.5, 1.0);
@@ -78,33 +80,33 @@ void Draw(screen* screen)
       Intersection target;
       vec3 sum = vec3(0.f);
 
-      glm::vec4 direction = vec4( x - width, y - height, focalLength, 1.f );
-      direction = Rot_y * direction;
-      //direction = normalize(direction);
-      bool found = ClosestIntersection( camera_pos, direction, triangles, target, rayType );
-      if( found ) {
-        vec3 color = DirectLight( target );
-        int id = target.triangleIndex;
-        PutPixelSDL( screen, x, y, triangles[id].color * (color + indirectLight));
-      }
-
-      // for( float dy = -0.5; dy < 0.5; dy += 0.5 ) {
-      //   for( float dx = -0.5; dx < 0.5; dx += 0.5 ) {
-      //     vec4 direction = vec4( x + dx - width, y + dy - height, focalLength, 0.f );
-      //     //rotate camera around y axis
-      //     //direction = Rot_y * direction;
-      //     //direction = normalize( direction );
-      //     bool found = ClosestIntersection( camera_pos, direction, triangles, target, rayType );
-      //
-      //     if( found ) {
-      //       vec3 color = DirectLight( target );
-      //       int id = target.triangleIndex;
-      //       sum += triangles[id].color * (color + indirectLight);
-      //     }
-      //   }
+      // glm::vec4 direction = vec4( x - width, y - height, focalLength, 1.f );
+      // direction = Rot_y * direction;
+      // //direction = normalize(direction);
+      // bool found = ClosestIntersection( camera_pos, direction, triangles, target, rayType );
+      // if( found ) {
+      //   vec3 color = DirectLight( target );
+      //   int id = target.triangleIndex;
+      //   PutPixelSDL( screen, x, y, triangles[id].color * (color + indirectLight));
       // }
-      // sum = vec3(sum.x / 4, sum.y / 4, sum.z / 4);
-      // PutPixelSDL( screen, x, y, sum );
+
+      for( float dy = -0.5; dy < 0.5; dy += 0.5 ) {
+        for( float dx = -0.5; dx < 0.5; dx += 0.5 ) {
+          vec4 direction = vec4( x + dx - width, y + dy - height, focalLength, 0.f );
+          //rotate camera around y axis
+          //direction = Rot_y * direction;
+          //direction = normalize( direction );
+          bool found = ClosestIntersection( camera_pos, direction, triangles, target, rayType );
+
+          if( found ) {
+            vec3 color = DirectLight( target );
+            int id = target.triangleIndex;
+            sum += triangles[id].color * (color + indirectLight);
+          }
+        }
+      }
+      sum = vec3(sum.x / 4, sum.y / 4, sum.z / 4);
+      PutPixelSDL( screen, x, y, sum );
     }
   }
 }
@@ -232,6 +234,54 @@ glm::vec4 ReflectRay(const glm::vec4 IncidentRay, const glm::vec4 Normal)
   //return result;
 }
 
+glm::vec4 refract(const glm::vec4 IncidentRay, const glm::vec4 Normal, float ior)
+{
+  glm::vec3 i = glm::vec3( IncidentRay.x, IncidentRay.y, IncidentRay.z );
+  glm::vec3 n = glm::vec3(Normal.x, Normal.y, Normal.z);
+  float cosi = glm::clamp(-1.0f, 1.0f, glm::dot(i, n));
+  float etai = 1;
+  float etat = ior;
+
+  if( cosi < 0 ) {
+    cosi = -cosi;
+  }
+  else {
+    std::swap( etai, etat );
+    n = -n;
+  }
+
+  float eta = etai/etat;
+  float k = 1 - eta * eta * ( 1 - cosi * cosi );
+
+  return k < 0 ? glm::vec4(0) : glm::vec4(eta * i + (eta * cosi - sqrtf(k)) * n, 1.0);
+}
+
+void fresnel(const glm::vec4& IncidentRay, const glm::vec4& Normal, const float &ior, float &kr )
+{
+  glm::vec3 i = glm::vec3( IncidentRay.x, IncidentRay.y, IncidentRay.z );
+  glm::vec3 n = glm::vec3( Normal.x, Normal.y, Normal.z );
+  float cosi = glm::clamp( -1.0f, 1.0f, glm::dot( i, n ) );
+  float etai = 1;
+
+  float etat = ior;
+
+  if( cosi > 0 ) {
+    std::swap( etai, etat );
+  }
+
+  float sint = etai / etat * sqrtf( std::max( 0.f, 1 - cosi * cosi ) );
+  if( sint >= 1 ) {
+    kr = 1;
+  }
+  else {
+    float cost = sqrtf( std::max( 0.f, 1 - sint * sint ) );
+    cosi = fabsf( cosi );
+    float Rs = ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
+    float Rp = ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost));
+    kr = (Rs * Rs + Rp * Rp) / 2;
+  }
+}
+
 bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, Intersection& target, RayType rayType)
 {
   bool found = false;
@@ -282,13 +332,18 @@ bool ClosestIntersection(vec4 start, vec4 dir, std::vector<Triangle> triangles, 
         return reflectionFound;
         break;
       }
+      case kReflectionAndRefraction: {
+        float kr;
+        glm::vec4 incidentRay = glm::vec4(direction, 1.0);
+        glm::vec4 origin = target.position + glm::vec4(0.001) * triangles[target.triangleIndex].normal;
+        origin.w = 1.0;
+      }
       default: {
+        return found;
         break;
       }
     }
   }
-
-  return found;
 }
 
 mat4 LookAt( vec3 from, vec3 to )

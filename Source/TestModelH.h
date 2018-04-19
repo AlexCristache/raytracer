@@ -154,8 +154,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	H = vec4(314,330,456,1);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,blue ) );
-	triangles.push_back( Triangle(E,F,B,blue ) );
+	triangles.push_back( Triangle(E,B,A,blue,kReflectionAndRefraction) );
+	triangles.push_back( Triangle(E,F,B,blue,kReflectionAndRefraction) );
 
 	// BACK
 	triangles.push_back( Triangle(H,C,D,blue) );
