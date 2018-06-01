@@ -6,8 +6,8 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <fstream>
-enum MaterialType { kDiffuse, kReflection, kReflectionAndRefraction };
-enum RayType { primaryRay, shadowRay };
+enum MaterialType { kDiffuse, kReflection, kReflectionAndRefraction, kDefault };
+enum RayType { primaryRay, shadowRay, secondaryRay };
 
 // Used to describe a triangular surface:
 class Triangle
@@ -24,7 +24,7 @@ public:
 	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color )
 		: v0(v0), v1(v1), v2(v2), color(color)
 	{
-		material = kDiffuse;
+		material = kDefault;
 		ior = 1.8f;
 		ComputeNormal();
 	}
@@ -56,6 +56,14 @@ struct Intersection
 	int triangleIndex;
 };
 
+//define the structure of a photon
+struct Photon
+{
+	glm::vec4 position;
+	glm::vec3 color;
+	glm::vec4 normal;
+};
+
 // Loads the Cornell Box. It is scaled to fill the volume:
 // -1 <= x <= +1
 // -1 <= y <= +1
@@ -74,7 +82,7 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	vec3 purple( 0.75f, 0.15f, 0.75f );
 	vec3 white(  0.75f, 0.75f, 0.75f );
 	vec3 gold(   0.95f, 0.85f, 0.0f );
-	vec3 dark_green( 0.0f, 0.15f, 0.1f);
+	vec3 dark_green( 0.0f, 0.45f, 0.1f);
 	vec3 grey( 0.41f, 0.41f, 0.41f);
 	vec3 dark_turquoise( 0.0f, 0.8f, 0.81f);
 	vec3 metallic_gold( 0.83f, 0.69f, 0.22f);
@@ -100,24 +108,24 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	vec4 H(0,L,L,1);
 
 	// Floor:
-	triangles.push_back( Triangle( C, B, A, ivory ) );
-	triangles.push_back( Triangle( C, D, B, ivory ) );
+	triangles.push_back( Triangle( C, B, A, white ) );
+	triangles.push_back( Triangle( C, D, B, white ) );
 
 	// Left wall
-	triangles.push_back( Triangle( A, E, C, purple, kReflectionAndRefraction) );
-	triangles.push_back( Triangle( C, E, G, purple, kReflectionAndRefraction) );
+	triangles.push_back( Triangle( A, E, C, red) );
+	triangles.push_back( Triangle( C, E, G, red) );
 
 	// Right wall
 	triangles.push_back( Triangle( F, B, D, dark_green) );
 	triangles.push_back( Triangle( H, F, D, dark_green) );
 
 	// Ceiling
-	triangles.push_back( Triangle( E, F, G, ivory ) );
-	triangles.push_back( Triangle( F, H, G, ivory ) );
+	triangles.push_back( Triangle( E, F, G, white ) );
+	triangles.push_back( Triangle( F, H, G, white ) );
 
 	// Back wall
-	triangles.push_back( Triangle( G, D, C, ivory) );
-	triangles.push_back( Triangle( G, H, D, ivory) );
+	triangles.push_back( Triangle( G, D, C, white) );
+	triangles.push_back( Triangle( G, H, D, white) );
 
 	// ---------------------------------------------------------------------------
 	// Short block
@@ -133,20 +141,20 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	H = vec4( 82,165,225,1);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,metallic_gold) );
-	triangles.push_back( Triangle(E,F,B,metallic_gold) );
+	triangles.push_back( Triangle(E,B,A,dark_green) );
+	triangles.push_back( Triangle(E,F,B,dark_green) );
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,metallic_gold) );
-	triangles.push_back( Triangle(H,G,C,metallic_gold) );
+	triangles.push_back( Triangle(H,C,D,white) );
+	triangles.push_back( Triangle(H,G,C,white) );
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,metallic_gold) );
-	triangles.push_back( Triangle(E,A,C,metallic_gold) );
+	triangles.push_back( Triangle(G,E,C,white) );
+	triangles.push_back( Triangle(E,A,C,white) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,metallic_gold) );
-	triangles.push_back( Triangle(G,H,F,metallic_gold) );
+	triangles.push_back( Triangle(G,F,E,white) );
+	triangles.push_back( Triangle(G,H,F,white) );
 
 	// ---------------------------------------------------------------------------
 	// Tall block
@@ -162,70 +170,70 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	H = vec4(314,330,456,1);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,midnight_blue) );
-	triangles.push_back( Triangle(E,F,B,midnight_blue) );
+	triangles.push_back( Triangle(E,B,A,white) );
+	triangles.push_back( Triangle(E,F,B,white) );
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,midnight_blue) );
-	triangles.push_back( Triangle(H,G,C,midnight_blue) );
+	triangles.push_back( Triangle(H,C,D,white) );
+	triangles.push_back( Triangle(H,G,C,white) );
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,midnight_blue) );
-	triangles.push_back( Triangle(E,A,C,midnight_blue) );
+	triangles.push_back( Triangle(G,E,C,white) );
+	triangles.push_back( Triangle(E,A,C,white) );
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,midnight_blue) );
-	triangles.push_back( Triangle(G,H,F,midnight_blue) );
+	triangles.push_back( Triangle(G,F,E,white) );
+	triangles.push_back( Triangle(G,H,F,white) );
 
 
 	// ----------------------------------------------
 	//Custom model loaded from file
-	// std::ifstream file("Source/bunny2.obj");
-	// char buffer[128];
-	// std::vector<vec3> vertices;
-	// if (file.is_open())
-	// {
-	// 	//int size = triangles.size();
-	// 	std::cout << "Loading"<< std::endl;
-	// 	while (!file.eof())
-	// 	{
-	// 		switch (file.peek())
-	// 		{
-	// 		case 'v':
-	// 			file.get();
-	// 			float x, y, z;
-	// 			file >> x >> y >> z;
-	// 			vertices.push_back(vec3(x, y, z));
-	// 			break;
-	// 		case 'f':
-	// 		{
-	// 			file.get();
-	// 			int a, b, c;
-	// 			file >> a >> b >> c;
-	// 			--a; --b; --c;
-	// 			// vec4 va = vec4(vertices[a], 1);
-	// 			// vec4 vb = vec4(vertices[b], 1);
-	// 			// vec4 vc = vec4(vertices[c], 1);
-	// 			Triangle triangle(vec4(vertices[a], 1), vec4(vertices[b], 1), vec4(vertices[c], 1), blue);
-	// 			triangles.push_back(triangle);
-	// 			break;
-	// 		}
-	// 		case '\n':
-	// 			file.get();
-	// 			break;
-	// 		case '#':
-	// 		default:
-	// 			file.getline(buffer, 128);
-	// 			break;
-	// 		}
-	// 	}
-	// 	std::cout << "Loaded custom model" << std::endl;
-	// 	file.close();
-	// }
-	// else
-	// {
-	// 	std::cout << "Cannot open , aborting" << std::endl;
-	// }
+	std::ifstream file("Source/bunny22.obj");
+	char buffer[128];
+	std::vector<vec3> vertices;
+	if (file.is_open())
+	{
+		//int size = triangles.size();
+		std::cout << "Loading"<< std::endl;
+		while (!file.eof())
+		{
+			switch (file.peek())
+			{
+			case 'v':
+				file.get();
+				float x, y, z;
+				file >> x >> y >> z;
+				vertices.push_back(vec3(x, y, z));
+				break;
+			case 'f':
+			{
+				file.get();
+				int a, b, c;
+				file >> a >> b >> c;
+				--a; --b; --c;
+				// vec4 va = vec4(vertices[a], 1);
+				// vec4 vb = vec4(vertices[b], 1);
+				// vec4 vc = vec4(vertices[c], 1);
+				Triangle triangle(vec4(vertices[a], 1), vec4(vertices[b], 1), vec4(vertices[c], 1), white);
+				triangles.push_back(triangle);
+				break;
+			}
+			case '\n':
+				file.get();
+				break;
+			case '#':
+			default:
+				file.getline(buffer, 128);
+				break;
+			}
+		}
+		std::cout << "Loaded custom model" << std::endl;
+		file.close();
+	}
+	else
+	{
+		std::cout << "Cannot open , aborting" << std::endl;
+	}
 
 	// ----------------------------------------------
 	// Scale to the volume [-1,1]^3
